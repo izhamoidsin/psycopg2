@@ -152,16 +152,24 @@ psyco_conn_close(connectionObject *self, PyObject *dummy)
 
 /* commit method - commit all changes to the database */
 
-#define psyco_conn_commit_doc "commit() -- Commit all changes to database."
+#define psyco_conn_commit_doc "commit(...) -- Commit all changes to database."
+#define psyco_conn_commit_doc \
+"commit(...) -- Commit all changes to database.\n\n" \
+"Accepted optional argument is 'comment'."
 
 static PyObject *
-psyco_conn_commit(connectionObject *self, PyObject *dummy)
+psyco_conn_commit(connectionObject *self, PyObject *args, PyObject *kwargs)
 {
+    const char *comment = NULL;
+
     EXC_IF_CONN_CLOSED(self);
     EXC_IF_CONN_ASYNC(self, commit);
     EXC_IF_TPC_BEGIN(self, commit);
 
-    if (conn_commit(self) < 0)
+    static char *kwlist[] = {"comment", NULL};
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|z", kwlist, &comment)) return NULL;
+
+    if (conn_commit(self, comment) < 0)
         return NULL;
 
     Py_RETURN_NONE;
@@ -1189,7 +1197,7 @@ static struct PyMethodDef connectionObject_methods[] = {
     {"close", (PyCFunction)psyco_conn_close,
      METH_NOARGS, psyco_conn_close_doc},
     {"commit", (PyCFunction)psyco_conn_commit,
-     METH_NOARGS, psyco_conn_commit_doc},
+     METH_VARARGS|METH_KEYWORDS, psyco_conn_commit_doc},
     {"rollback", (PyCFunction)psyco_conn_rollback,
      METH_NOARGS, psyco_conn_rollback_doc},
     {"xid", (PyCFunction)psyco_conn_xid,

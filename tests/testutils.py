@@ -520,7 +520,6 @@ def slow(f):
 
     Note: in order to find slow tests you can run:
 
-    make check 2>&1 | ts -i "%.s" | sort -n
     """
     @wraps(f)
     def slow_(self):
@@ -528,6 +527,23 @@ def slow(f):
             return self.skipTest("slow test")
         return f(self)
     return slow_
+
+
+def db_log_required(f):
+    """Decorator to mark tests requiring logging enabled on the DB level
+
+    Note: in order to find slow tests you can run:
+        ALTER SYSTEM SET log_statement = 'all';
+        ALTER SYSTEM SET log_duration = off;
+        ALTER SYSTEM SET log_destination = 'stderr';
+        SELECT pg_reload_conf();
+    """
+    @wraps(f)
+    def log_required(self):
+        if os.environ.get('PSYCOPG2_TEST_WITH_DB_LOG_ENABLED', '0') == '0':
+            return self.skipTest("DB log required")
+        return f(self)
+    return log_required
 
 
 def restore_types(f):

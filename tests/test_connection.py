@@ -45,7 +45,7 @@ from .testutils import (
     unittest, skip_if_no_superuser, skip_before_postgres,
     skip_after_postgres, skip_before_libpq, skip_after_libpq,
     ConnectingTestCase, skip_if_tpc_disabled, skip_if_windows, slow,
-    skip_if_crdb, crdb_version)
+    skip_if_crdb, crdb_version, db_log_required)
 
 from .testconfig import dbhost, dsn, dbname
 
@@ -138,7 +138,10 @@ class ConnectionTests(ConnectingTestCase):
             create temp table table3 (id serial);
             create temp table table4 (id serial);
             """)
-        self.assertEqual(4, len(conn.notices))
+        # ignore message with log level because, if logging is enable on the DB level,
+        # it will mess up with the expected debug messages because of the following
+        # hierarchy: DEBUG5 < DEBUG4 < DEBUG3 < DEBUG2 < DEBUG1 < LOG < NOTICE < WARNING < ERROR
+        conn.notices = [n for n in conn.notices if not n.startswith('LOG: ')]
         self.assert_('table1' in conn.notices[0])
         self.assert_('table2' in conn.notices[1])
         self.assert_('table3' in conn.notices[2])
@@ -156,7 +159,10 @@ class ConnectionTests(ConnectingTestCase):
                             for j in range(i, i + 10)])
             cur.execute(sql)
 
-        self.assertEqual(50, len(conn.notices))
+        # ignore message with log level because, if logging is enable on the DB level,
+        # it will mess up with the expected debug messages because of the following
+        # hierarchy: DEBUG5 < DEBUG4 < DEBUG3 < DEBUG2 < DEBUG1 < LOG < NOTICE < WARNING < ERROR
+        conn.notices = [n for n in conn.notices if not n.startswith('LOG: ')]
         self.assert_('table99' in conn.notices[-1], conn.notices[-1])
 
     @slow
@@ -175,6 +181,10 @@ class ConnectionTests(ConnectingTestCase):
         cur.execute("""
             create temp table table3 (id serial);
             create temp table table4 (id serial);""")
+        # ignore message with log level because, if logging is enable on the DB level,
+        # it will mess up with the expected debug messages because of the following
+        # hierarchy: DEBUG5 < DEBUG4 < DEBUG3 < DEBUG2 < DEBUG1 < LOG < NOTICE < WARNING < ERROR
+        conn.notices = deque([n for n in conn.notices if not n.startswith('LOG: ')])
         self.assertEqual(len(conn.notices), 4)
         self.assert_('table1' in conn.notices.popleft())
         self.assert_('table2' in conn.notices.popleft())
@@ -274,6 +284,55 @@ class ConnectionTests(ConnectingTestCase):
         del conn
         gc.collect()
         self.assert_(w() is None)
+
+    @db_log_required
+    def test_commit(self):
+        conn = self.conn
+        cur = conn.cursor()
+        if self.conn.info.server_version >= 90300:
+            cur.execute("set client_min_messages=debug1")
+        cur.execute("create temp table test_commit (data int)")
+        cur.execute("insert into test_commit values (1)")
+        cur.execute("insert into test_commit values (2)")
+        conn.commit()
+        self.assert_('COMMIT' in conn.notices[-1])
+
+        cur.execute("select * from test_commit")
+        self.assertEqual(cur.fetchall(), [(1,), (2,)])
+
+    @db_log_required
+    def test_commit_with_comment(self):
+        conn = self.conn
+        cur = conn.cursor()
+        if self.conn.info.server_version >= 90300:
+            cur.execute("set client_min_messages=debug1")
+        cur.execute("create temp table test_commit_with_comment (data int)")
+        cur.execute("insert into test_commit_with_comment values (1)")
+        conn.commit(comment="commit with kwarg")
+        self.assert_('commit with kwarg' in conn.notices[-1])
+
+        cur.execute("insert into test_commit_with_comment values (2)")
+        conn.commit("commit with arg")
+        self.assert_('commit with arg' in conn.notices[-1])
+
+        cur.execute("select * from test_commit_with_comment")
+        self.assertEqual(cur.fetchall(), [(1,), (2,)])
+
+    @db_log_required
+    def test_commit_with_too_long_comment(self):
+        conn = self.conn
+        cur = conn.cursor()
+        if self.conn.info.server_version >= 90300:
+            cur.execute("set client_min_messages=debug1")
+        cur.execute("create temp table test_commit_with_comment (data int)")
+        cur.execute("insert into test_commit_with_comment values (1)")
+        conn.commit(comment="The commit message is far too long to be accepted, so we expect it to be ignored by the "
+                            "underlying code that should fallback to the comment-less commit statement that is the "
+                            "default behavior. This is a very long message that should be ignored.")
+        self.assert_('comment: ignored (too long)' in conn.notices[-1])
+
+        cur.execute("select * from test_commit_with_comment")
+        self.assertEqual(cur.fetchall(), [(1,)])
 
     @slow
     def test_commit_concurrency(self):
