@@ -290,7 +290,7 @@ class ConnectionTests(ConnectingTestCase):
         conn = self.conn
         cur = conn.cursor()
         if self.conn.info.server_version >= 90300:
-            cur.execute("set client_min_messages=debug1")
+            cur.execute("set client_min_messages=log")
         cur.execute("create temp table test_commit (data int)")
         cur.execute("insert into test_commit values (1)")
         cur.execute("insert into test_commit values (2)")
@@ -305,7 +305,7 @@ class ConnectionTests(ConnectingTestCase):
         conn = self.conn
         cur = conn.cursor()
         if self.conn.info.server_version >= 90300:
-            cur.execute("set client_min_messages=debug1")
+            cur.execute("set client_min_messages=log")
         cur.execute("create temp table test_commit_with_comment (data int)")
         cur.execute("insert into test_commit_with_comment values (1)")
         conn.commit(comment="commit with kwarg")
@@ -323,7 +323,7 @@ class ConnectionTests(ConnectingTestCase):
         conn = self.conn
         cur = conn.cursor()
         if self.conn.info.server_version >= 90300:
-            cur.execute("set client_min_messages=debug1")
+            cur.execute("set client_min_messages=log")
         cur.execute("create temp table test_commit_with_comment (data int)")
         cur.execute("insert into test_commit_with_comment values (1)")
         conn.commit(comment="The commit message is far too long to be accepted, so we expect it to be ignored by the "
