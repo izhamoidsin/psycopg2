@@ -41,7 +41,7 @@ RAISES_NEG HIDDEN int pq_execute(cursorObject *curs, const char *query,
                                  int async, int no_result, int no_begin);
 HIDDEN int pq_send_query(connectionObject *conn, const char *query);
 HIDDEN int pq_begin_locked(connectionObject *conn, PyThreadState **tstate);
-HIDDEN int pq_commit(connectionObject *conn);
+HIDDEN int pq_commit(connectionObject *conn, const char *comment);
 RAISES_NEG HIDDEN int pq_abort_locked(connectionObject *conn,
                            PyThreadState **tstate);
 RAISES_NEG HIDDEN int pq_abort(connectionObject *conn);

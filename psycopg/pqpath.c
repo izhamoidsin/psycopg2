@@ -392,9 +392,11 @@ pq_begin_locked(connectionObject *conn, PyThreadState **tstate)
 */
 
 int
-pq_commit(connectionObject *conn)
+pq_commit(connectionObject *conn, const char *comment)
 {
     int retvalue = -1;
+    char query[256];
+    int size;
 
     Py_BEGIN_ALLOW_THREADS;
     pthread_mutex_lock(&conn->lock);
@@ -402,13 +404,25 @@ pq_commit(connectionObject *conn)
     Dprintf("pq_commit: pgconn = %p, status = %d",
             conn->pgconn, conn->status);
 
+    if (comment) {
+        Dprintf("commit comment = %s", comment);
+        size = PyOS_snprintf(query, sizeof(query), "COMMIT; -- comment: %s", comment);
+    } else {
+        Dprintf("no commit comment");
+        size = PyOS_snprintf(query, sizeof(query), "COMMIT");
+    }
+    if (size < 0 || (size_t)size >= sizeof(query)) {
+        Dprintf("commit comment too large");
+        size = PyOS_snprintf(query, sizeof(query), "COMMIT; -- comment: ignored (too long)");
+    }
+
     if (conn->status != CONN_STATUS_BEGIN) {
         Dprintf("pq_commit: no transaction to commit");
         retvalue = 0;
     }
     else {
         conn->mark += 1;
-        retvalue = pq_execute_command_locked(conn, "COMMIT", &_save);
+        retvalue = pq_execute_command_locked(conn, query, &_save);
     }
 
     Py_BLOCK_THREADS;

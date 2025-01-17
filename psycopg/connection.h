@@ -172,7 +172,7 @@ HIDDEN int  conn_connect(connectionObject *self, const char *dsn, long int async
 HIDDEN char *conn_obscure_password(const char *dsn);
 HIDDEN void conn_close(connectionObject *self);
 HIDDEN void conn_close_locked(connectionObject *self);
-RAISES_NEG HIDDEN int  conn_commit(connectionObject *self);
+RAISES_NEG HIDDEN int  conn_commit(connectionObject *self, const char *comment);
 RAISES_NEG HIDDEN int  conn_rollback(connectionObject *self);
 RAISES_NEG HIDDEN int conn_set_session(connectionObject *self, int autocommit,
         int isolevel, int readonly, int deferrable);

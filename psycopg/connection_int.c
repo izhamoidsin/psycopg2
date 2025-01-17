@@ -1244,11 +1244,11 @@ void conn_close_locked(connectionObject *self)
 /* conn_commit - commit on a connection */
 
 RAISES_NEG int
-conn_commit(connectionObject *self)
+conn_commit(connectionObject *self, const char *comment)
 {
     int res;
 
-    res = pq_commit(self);
+    res = pq_commit(self, comment);
     return res;
 }
 
